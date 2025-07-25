@@ -3,6 +3,7 @@ class BluetoothService {
   bool _isScanning = false;
   bool _isConnected = false;
 
+  // ignore: unused_field
   Function(Map<String, dynamic>)? _messageHandler;
   Function(List<Map<String, dynamic>>)? _deviceHandler;
 

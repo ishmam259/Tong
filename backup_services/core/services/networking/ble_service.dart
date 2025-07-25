@@ -1,27 +1,23 @@
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+// Stub implementation of BLE Service
+// To use actual BLE functionality, add flutter_blue_plus to pubspec.yaml
 
 class BleService {
   bool _isInitialized = false;
   bool _isScanning = false;
-  BluetoothDevice? _connectedDevice;
-  BluetoothCharacteristic? _writeCharacteristic;
-  BluetoothCharacteristic? _readCharacteristic;
+  bool _isConnected = false;
 
+  // ignore: unused_field
   Function(Map<String, dynamic>)? _messageHandler;
   Function(List<Map<String, dynamic>>)? _deviceHandler;
 
   bool get isInitialized => _isInitialized;
   bool get isScanning => _isScanning;
-  bool get isConnected => _connectedDevice != null;
+  bool get isConnected => _isConnected;
 
   Future<void> initialize() async {
     try {
-      // Check if Bluetooth is supported
-      if (await FlutterBluePlus.isSupported == false) {
-        print("Bluetooth not supported by this device");
-        return;
-      }
-
+      print("BLE Service: Stub implementation - BLE not available");
+      print("To enable BLE: Add 'flutter_blue_plus: ^1.24.0' to pubspec.yaml");
       _isInitialized = true;
     } catch (e) {
       print('Error initializing BLE: $e');
@@ -30,8 +26,8 @@ class BleService {
 
   Future<bool> isBluetoothEnabled() async {
     try {
-      return await FlutterBluePlus.adapterState.first ==
-          BluetoothAdapterState.on;
+      print("BLE Service: Checking Bluetooth status (stub)");
+      return false; // Stub always returns false
     } catch (e) {
       print('Error checking BLE status: $e');
       return false;
@@ -44,34 +40,17 @@ class BleService {
     if (!_isInitialized || _isScanning) return;
 
     try {
+      print("BLE Service: Starting scan (stub) - no devices will be found");
       _deviceHandler = deviceHandler;
       _isScanning = true;
 
-      final List<Map<String, dynamic>> devices = [];
-
-      // Listen to scan results
-      FlutterBluePlus.scanResults.listen((results) {
-        devices.clear();
-        for (ScanResult result in results) {
-          devices.add({
-            'id': result.device.remoteId.toString(),
-            'name':
-                result.device.platformName.isNotEmpty
-                    ? result.device.platformName
-                    : 'Unknown BLE Device',
-            'rssi': result.rssi,
-            'serviceUuids':
-                result.advertisementData.serviceUuids
-                    .map((uuid) => uuid.toString())
-                    .toList(),
-            'manufacturerData': result.advertisementData.manufacturerData,
-          });
+      // Simulate empty scan results after a delay
+      Future.delayed(Duration(seconds: 2), () {
+        if (_isScanning) {
+          _deviceHandler!([]);
+          _isScanning = false;
         }
-        _deviceHandler!(devices);
       });
-
-      // Start scanning
-      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
     } catch (e) {
       print('Error starting BLE scanning: $e');
       _isScanning = false;
@@ -80,7 +59,7 @@ class BleService {
 
   Future<void> stopScanning() async {
     try {
-      await FlutterBluePlus.stopScan();
+      print("BLE Service: Stopping scan (stub)");
       _isScanning = false;
     } catch (e) {
       print('Error stopping BLE scanning: $e');
@@ -89,62 +68,18 @@ class BleService {
 
   Future<bool> connect(String deviceId) async {
     try {
-      if (_connectedDevice != null) {
-        await disconnect(deviceId);
-      }
-
-      // Find the device
-      final scanResults = await FlutterBluePlus.scanResults.first;
-      final device =
-          scanResults
-              .firstWhere(
-                (result) => result.device.remoteId.toString() == deviceId,
-              )
-              .device;
-
-      // Connect to device
-      await device.connect();
-      _connectedDevice = device;
-
-      // Discover services
-      List<BluetoothService> services = await device.discoverServices();
-
-      // Find characteristics for messaging
-      for (BluetoothService service in services) {
-        for (BluetoothCharacteristic characteristic
-            in service.characteristics) {
-          if (characteristic.properties.write) {
-            _writeCharacteristic = characteristic;
-          }
-          if (characteristic.properties.read ||
-              characteristic.properties.notify) {
-            _readCharacteristic = characteristic;
-
-            // Subscribe to notifications if supported
-            if (characteristic.properties.notify) {
-              await characteristic.setNotifyValue(true);
-              characteristic.lastValueStream.listen(_onDataReceived);
-            }
-          }
-        }
-      }
-
-      return true;
+      print("BLE Service: Connect attempt to $deviceId (stub) - will fail");
+      return false; // Stub always fails to connect
     } catch (e) {
       print('Error connecting to BLE device: $e');
-      _connectedDevice = null;
       return false;
     }
   }
 
   Future<void> disconnect(String deviceId) async {
     try {
-      if (_connectedDevice != null) {
-        await _connectedDevice!.disconnect();
-        _connectedDevice = null;
-        _writeCharacteristic = null;
-        _readCharacteristic = null;
-      }
+      print("BLE Service: Disconnect from $deviceId (stub)");
+      _isConnected = false;
     } catch (e) {
       print('Error disconnecting BLE: $e');
     }
@@ -152,51 +87,23 @@ class BleService {
 
   Future<bool> sendMessage(Map<String, dynamic> message) async {
     try {
-      if (_writeCharacteristic == null || _connectedDevice == null) {
-        return false;
-      }
-
-      final jsonString = message.toString();
-      final data = jsonString.codeUnits;
-
-      // BLE has a limit on data size, so we might need to chunk large messages
-      const maxChunkSize = 20; // Typical BLE MTU - 3 bytes for headers
-
-      for (int i = 0; i < data.length; i += maxChunkSize) {
-        final end =
-            (i + maxChunkSize < data.length) ? i + maxChunkSize : data.length;
-        final chunk = data.sublist(i, end);
-
-        await _writeCharacteristic!.write(chunk);
-      }
-
-      return true;
+      print("BLE Service: Send message (stub) - message not sent: $message");
+      return false; // Stub always fails to send
     } catch (e) {
       print('Error sending BLE message: $e');
       return false;
     }
   }
 
-  void _onDataReceived(List<int> data) {
-    try {
-      final message = String.fromCharCodes(data);
-      if (_messageHandler != null) {
-        _messageHandler!({'content': message, 'type': 'ble'});
-      }
-    } catch (e) {
-      print('Error processing received BLE data: $e');
-    }
-  }
-
   void setMessageHandler(Function(Map<String, dynamic>) handler) {
     _messageHandler = handler;
+    print("BLE Service: Message handler set (stub)");
   }
 
   void dispose() {
+    print("BLE Service: Disposing (stub)");
     stopScanning();
-    if (_connectedDevice != null) {
-      _connectedDevice!.disconnect();
-    }
+    _isConnected = false;
     _isInitialized = false;
   }
 }
