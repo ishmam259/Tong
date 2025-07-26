@@ -3,6 +3,8 @@ import '../main.dart' show themeProvider;
 import '../services/networking_service.dart';
 
 class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
   @override
   _SettingsScreenState createState() => _SettingsScreenState();
 }
@@ -348,13 +350,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 class NetworkDiscoveryScreen extends StatefulWidget {
+  const NetworkDiscoveryScreen({super.key});
+
   @override
   _NetworkDiscoveryScreenState createState() => _NetworkDiscoveryScreenState();
 }
 
 class _NetworkDiscoveryScreenState extends State<NetworkDiscoveryScreen> {
   bool _isScanning = false;
-  List<Map<String, dynamic>> _discoveredDevices = [];
+  final List<Map<String, dynamic>> _discoveredDevices = [];
   final NetworkingService _networkingService = NetworkingService();
 
   @override
@@ -859,6 +863,8 @@ class _NetworkDiscoveryScreenState extends State<NetworkDiscoveryScreen> {
 }
 
 class BluetoothDiagnosticsScreen extends StatefulWidget {
+  const BluetoothDiagnosticsScreen({super.key});
+
   @override
   _BluetoothDiagnosticsScreenState createState() =>
       _BluetoothDiagnosticsScreenState();
@@ -868,7 +874,7 @@ class _BluetoothDiagnosticsScreenState
     extends State<BluetoothDiagnosticsScreen> {
   final NetworkingService _networkingService = NetworkingService();
   String _bluetoothStatus = 'Checking...';
-  List<String> _diagnosticResults = [];
+  final List<String> _diagnosticResults = [];
   bool _isRunningDiagnostics = false;
 
   @override

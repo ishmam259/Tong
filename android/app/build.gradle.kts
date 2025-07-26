@@ -3,12 +3,13 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Google services plugin removed - using local authentication
 }
 
 android {
     namespace = "com.example.tong"
-    compileSdk = 34
-    ndkVersion = "26.3.11579264"
+    compileSdk = 35  // Updated to meet shared_preferences_android requirement
+    ndkVersion = "27.0.12077973"  // Updated to meet plugin requirements
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -24,10 +25,13 @@ android {
         applicationId = "com.example.tong"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21
-        targetSdk = 34
+        minSdk = 23  // Increased for Firebase and Bluetooth LE support
+        targetSdk = 35  // Updated to match compileSdk
         versionCode = 1
         versionName = "1.0.0"
+        
+        // Enable multidex for Firebase
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -41,4 +45,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("androidx.multidex:multidex:2.0.1")
 }

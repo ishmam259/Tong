@@ -4,7 +4,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/networking_service.dart';
-import 'services/local_auth_service.dart'; // Changed to local auth
+import 'services/local_auth_service.dart';
 import 'providers/theme_provider.dart';
 
 // Global theme provider instance
@@ -15,13 +15,10 @@ final authService = LocalAuthService();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Note: Firebase is disabled for development
-  // To enable Firebase, create a project and configure firebase_options.dart
-
   // Initialize theme
   await themeProvider.initializeTheme();
 
-  // Initialize local auth service (no Firebase required)
+  // Initialize local auth service
   try {
     await authService.initialize();
   } catch (e) {
@@ -139,7 +136,6 @@ class WelcomeScreen extends StatelessWidget {
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(height: 24),
-
               Text(
                 'Welcome to Tong',
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
@@ -156,7 +152,6 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-
               const SizedBox(height: 40),
 
               Card(
@@ -645,7 +640,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
                 FloatingActionButton(
                   mini: true,
                   onPressed: _sendMessage,
-                  backgroundColor: Colors.blue,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   child: Icon(Icons.send, color: Colors.white),
                 ),
               ],

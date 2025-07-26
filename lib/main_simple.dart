@@ -1,32 +1,16 @@
 import 'package:flutter/material.dart';
 import 'screens/settings_screen.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/auth/signup_screen.dart';
-import 'screens/profile_screen.dart';
 import 'services/networking_service.dart';
-import 'services/local_auth_service.dart'; // Changed to local auth
 import 'providers/theme_provider.dart';
 
 // Global theme provider instance
 final themeProvider = ThemeProvider();
-// Global auth service instance
-final authService = LocalAuthService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Note: Firebase is disabled for development
-  // To enable Firebase, create a project and configure firebase_options.dart
-
   // Initialize theme
   await themeProvider.initializeTheme();
-
-  // Initialize local auth service (no Firebase required)
-  try {
-    await authService.initialize();
-  } catch (e) {
-    print('Local auth service initialization failed: $e');
-  }
 
   runApp(TongApp());
 }
@@ -60,216 +44,10 @@ class _TongAppState extends State<TongApp> {
     return MaterialApp(
       title: 'Tong Messenger',
       theme: themeProvider.currentTheme,
-      initialRoute: '/',
+      home: MessagingScreen(),
       routes: {
-        '/': (context) => AuthWrapperScreen(),
-        '/login': (context) => LoginScreen(),
-        '/signup': (context) => SignupScreen(),
-        '/home': (context) => MessagingScreen(),
         '/settings': (context) => SettingsScreen(),
-        '/profile': (context) => ProfileScreen(),
       },
-    );
-  }
-}
-
-class AuthWrapperScreen extends StatelessWidget {
-  const AuthWrapperScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: authService,
-      builder: (context, child) {
-        if (authService.isLoading) {
-          return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    size: 80,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Tong',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  const Text('Loading...'),
-                ],
-              ),
-            ),
-          );
-        }
-
-        if (authService.isLoggedIn) {
-          return MessagingScreen();
-        } else {
-          return WelcomeScreen();
-        }
-      },
-    );
-  }
-}
-
-class WelcomeScreen extends StatelessWidget {
-  const WelcomeScreen({super.key});
-
-  @override
-  Widget build(context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: 60),
-              Icon(
-                Icons.chat_bubble_outline,
-                size: 80,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 24),
-
-              Text(
-                'Welcome to Tong',
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Connect with your world',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 40),
-
-              Card(
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Advanced Multi-Network Messaging',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildFeatureItem(
-                            context,
-                            Icons.security,
-                            'Secure Authentication',
-                          ),
-                          _buildFeatureItem(
-                            context,
-                            Icons.bluetooth,
-                            'Bluetooth Connectivity',
-                          ),
-                          _buildFeatureItem(
-                            context,
-                            Icons.cloud_sync,
-                            'Cloud Synchronization',
-                          ),
-                          _buildFeatureItem(
-                            context,
-                            Icons.offline_bolt,
-                            'Offline Support',
-                          ),
-                          _buildFeatureItem(
-                            context,
-                            Icons.people,
-                            'User Management',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Sign up button
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/signup');
-                  },
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Get Started',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Login button
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/login');
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Sign In',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeatureItem(BuildContext context, IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
-          Text(text, style: Theme.of(context).textTheme.bodyMedium),
-        ],
-      ),
     );
   }
 }
@@ -285,6 +63,8 @@ class _MessagingScreenState extends State<MessagingScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<String> _messages = [];
   final NetworkingService _networkingService = NetworkingService();
+  final String _currentUserId = 'user_${DateTime.now().millisecondsSinceEpoch}';
+  final String _userName = 'Anonymous User';
 
   @override
   void initState() {
@@ -298,8 +78,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
 
     _networkingService.setMessageHandler((messageData) {
       final networkMessage = NetworkMessage.fromJson(messageData);
-      final currentUser = authService.currentUser;
-      if (currentUser != null && networkMessage.senderId != currentUser.id) {
+      if (networkMessage.senderId != _currentUserId) {
         setState(() {
           _messages.add(
             '${networkMessage.senderName}: ${networkMessage.content}',
@@ -313,13 +92,12 @@ class _MessagingScreenState extends State<MessagingScreen> {
   }
 
   void _sendMessage() {
-    final currentUser = authService.currentUser;
-    if (_messageController.text.trim().isNotEmpty && currentUser != null) {
+    if (_messageController.text.trim().isNotEmpty) {
       final messageText = _messageController.text.trim();
       final networkMessage = NetworkMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        senderId: currentUser.id,
-        senderName: currentUser.displayName,
+        senderId: _currentUserId,
+        senderName: _userName,
         content: messageText,
         timestamp: DateTime.now(),
       );
@@ -394,13 +172,6 @@ class _MessagingScreenState extends State<MessagingScreen> {
     );
   }
 
-  void _logout() async {
-    await authService.signOut();
-    if (mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-    }
-  }
-
   @override
   void dispose() {
     _messageController.dispose();
@@ -410,65 +181,15 @@ class _MessagingScreenState extends State<MessagingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = authService.currentUser;
-
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Tong Messenger'),
-            if (currentUser != null)
-              Text(
-                'Welcome, ${currentUser.displayName}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-          ],
-        ),
+        title: Text('Tong Messenger'),
         actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'profile':
-                  Navigator.pushNamed(context, '/profile');
-                  break;
-                case 'settings':
-                  Navigator.pushNamed(context, '/settings');
-                  break;
-                case 'logout':
-                  _logout();
-                  break;
-              }
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              Navigator.pushNamed(context, '/settings');
             },
-            itemBuilder:
-                (context) => [
-                  PopupMenuItem(
-                    value: 'profile',
-                    child: ListTile(
-                      leading: Icon(Icons.person),
-                      title: Text('Profile'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'settings',
-                    child: ListTile(
-                      leading: Icon(Icons.settings),
-                      title: Text('Settings'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'logout',
-                    child: ListTile(
-                      leading: Icon(Icons.logout),
-                      title: Text('Logout'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
           ),
         ],
       ),
@@ -580,10 +301,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
                                 radius: 16,
                                 backgroundColor: Colors.blue,
                                 child: Text(
-                                  currentUser?.displayName
-                                          .substring(0, 1)
-                                          .toUpperCase() ??
-                                      'U',
+                                  'U',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.white,
@@ -597,8 +315,8 @@ class _MessagingScreenState extends State<MessagingScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      _messages[index].startsWith('You:')
-                                          ? currentUser?.displayName ?? 'You'
+                                      _messages[index].startsWith('You:') 
+                                          ? 'You'
                                           : _messages[index].split(':')[0],
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,

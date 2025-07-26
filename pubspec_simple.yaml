@@ -1,0 +1,35 @@
+name: tong
+description: "Tong - Advanced Multi-Network Messaging App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI and State Management
+  cupertino_icons: ^1.0.8
+  
+  # Networking and Bluetooth
+  flutter_blue_plus: ^1.32.12
+  permission_handler: ^11.3.1
+  
+  # Basic utilities only
+  uuid: ^4.4.0
+  crypto: ^3.0.3
+  
+  # Date and time
+  intl: ^0.19.0
+  shared_preferences: ^2.5.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

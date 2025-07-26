@@ -11,13 +11,13 @@ class NetworkingService extends ChangeNotifier {
 
   bool _isConnected = false;
   String? _connectedDevice;
-  List<Map<String, dynamic>> _connectedPeers = [];
+  final List<Map<String, dynamic>> _connectedPeers = [];
   Function(Map<String, dynamic>)? _onMessageReceived;
 
   // TCP networking
   ServerSocket? _serverSocket;
   Socket? _clientSocket;
-  List<Socket> _clientConnections = [];
+  final List<Socket> _clientConnections = [];
 
   // Bluetooth networking
   final BluetoothService _bluetoothService = BluetoothService();
@@ -367,8 +367,9 @@ class NetworkingService extends ChangeNotifier {
           if (!completer.isCompleted) completer.completeError(error);
         },
         onDone: () {
-          if (!completer.isCompleted)
+          if (!completer.isCompleted) {
             completer.completeError('Connection closed');
+          }
         },
       );
 

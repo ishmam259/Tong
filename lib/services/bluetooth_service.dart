@@ -15,7 +15,7 @@ class BluetoothService extends ChangeNotifier {
   bool _isConnected = false;
   fbp.BluetoothDevice? _connectedDevice;
   fbp.BluetoothCharacteristic? _messageCharacteristic;
-  List<fbp.BluetoothDevice> _discoveredDevices = [];
+  final List<fbp.BluetoothDevice> _discoveredDevices = [];
   Function(Map<String, dynamic>)? _onMessageReceived;
 
   // Tong Messenger Bluetooth Service UUID
@@ -503,6 +503,7 @@ class BluetoothService extends ChangeNotifier {
     }
   }
 
+  @override
   Future<void> dispose() async {
     await stopScanning();
     await disconnect();
