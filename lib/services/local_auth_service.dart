@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io'; // For Platform detection
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -278,7 +279,7 @@ class LocalAuthService extends ChangeNotifier {
 
   // Hash password using SHA-256
   String _hashPassword(String password) {
-    final bytes = utf8.encode(password + 'salt_tong_app');
+    final bytes = utf8.encode('${password}salt_tong_app');
     final digest = sha256.convert(bytes);
     return digest.toString();
   }
@@ -288,10 +289,20 @@ class LocalAuthService extends ChangeNotifier {
     return 'user_${DateTime.now().millisecondsSinceEpoch}_${(1000 + (9999 - 1000) * (DateTime.now().microsecond / 1000000)).round()}';
   }
 
-  // Get device info
+  // Get device info (supported platforms only)
   Future<String> _getDeviceInfo() async {
     try {
-      return 'Local Device';
+      // Only support Android, iOS, and Windows
+      if (Platform.isAndroid) {
+        return 'Android Device';
+      } else if (Platform.isIOS) {
+        return 'iOS Device';
+      } else if (Platform.isWindows) {
+        return 'Windows Device';
+      } else {
+        // Unsupported platform
+        return 'Unsupported Platform';
+      }
     } catch (e) {
       return 'Unknown Device';
     }

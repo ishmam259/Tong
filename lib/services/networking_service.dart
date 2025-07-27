@@ -22,6 +22,9 @@ class NetworkingService extends ChangeNotifier {
   // Bluetooth networking
   final BluetoothService _bluetoothService = BluetoothService();
 
+  // UDP socket for device discovery
+  RawDatagramSocket? _discoverySocket;
+
   bool get isConnected => _isConnected || _bluetoothService.isConnected;
   String? get connectedDevice => _connectedDevice;
   List<Map<String, dynamic>> get connectedPeers => _connectedPeers;
@@ -40,10 +43,38 @@ class NetworkingService extends ChangeNotifier {
     try {
       // Initialize Bluetooth service
       await _bluetoothService.initialize();
+
+      // Initialize discovery socket
+      await _initializeDiscoverySocket();
+
       return true;
     } catch (e) {
       print('Error initializing networking: $e');
       return false;
+    }
+  }
+
+  /// Initialize UDP socket for device discovery
+  Future<void> _initializeDiscoverySocket() async {
+    try {
+      _discoverySocket = await RawDatagramSocket.bind(
+        InternetAddress.anyIPv4,
+        8081, // Discovery port
+      );
+      _discoverySocket!.broadcastEnabled = true;
+
+      _discoverySocket!.listen((event) {
+        if (event == RawSocketEvent.read) {
+          final datagram = _discoverySocket!.receive();
+          if (datagram != null) {
+            _handleDiscoveryMessage(datagram);
+          }
+        }
+      });
+
+      print('Discovery socket initialized on port 8081');
+    } catch (e) {
+      print('Error initializing discovery socket: $e');
     }
   }
 
@@ -125,6 +156,39 @@ class NetworkingService extends ChangeNotifier {
       return true;
     } catch (e) {
       print('Error starting server: $e');
+      return false;
+    }
+  }
+
+  /// Connect to a discovered device by ID (not IP address)
+  Future<bool> connectToDiscoveredDevice(Map<String, dynamic> device) async {
+    try {
+      // Handle Bluetooth devices (Reactive BLE)
+      if (device['type'] == 'Bluetooth') {
+        final deviceId = device['address'] as String?;
+        if (deviceId != null) {
+          final bleSvc = BluetoothService.instance;
+          bleSvc.setMessageHandler(_onMessageReceived!);
+          bleSvc.scanAndConnect();
+          // Give some time to connect
+          await Future.delayed(Duration(seconds: 5));
+          return bleSvc.isConnected;
+        }
+        return false;
+      }
+      // Handle WiFi devices (and other TCP-based connections)
+      final address =
+          device['_internal_address'] as String? ??
+          device['address'] as String?;
+      final port =
+          device['_internal_port'] as int? ?? device['port'] as int? ?? 8080;
+      if (address != null) {
+        return await connectToDevice(address, port: port);
+      }
+
+      return false;
+    } catch (e) {
+      print('Error connecting to discovered device: $e');
       return false;
     }
   }
@@ -222,6 +286,8 @@ class NetworkingService extends ChangeNotifier {
   }
 
   void disconnect() {
+    // Do nothing if already disposed
+    if (_isDisposed) return;
     try {
       // Close client connections
       for (final client in _clientConnections) {
@@ -251,6 +317,21 @@ class NetworkingService extends ChangeNotifier {
     }
   }
 
+  // Track disposal to allow safe multiple calls
+  bool _isDisposed = false;
+  @override
+  void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
+    try {
+      disconnect();
+    } catch (_) {}
+    try {
+      _discoverySocket?.close();
+    } catch (_) {}
+    super.dispose();
+  }
+
   Future<String?> getLocalIPAddress() async {
     try {
       final interfaces = await NetworkInterface.list();
@@ -268,276 +349,296 @@ class NetworkingService extends ChangeNotifier {
     }
   }
 
-  /// Discover devices on the local network by scanning IP addresses
-  Future<List<Map<String, dynamic>>> discoverNetworkDevices({
-    int port = 8080,
-    Duration timeout = const Duration(seconds: 1),
+  /// Discover devices using both Bluetooth and WiFi without exposing IP addresses
+  Future<List<Map<String, dynamic>>> discoverDevices({
+    Duration timeout = const Duration(seconds: 5),
   }) async {
     final discoveredDevices = <Map<String, dynamic>>[];
 
+    print('Starting unified device discovery...');
+
+    // Start both Bluetooth and WiFi discovery simultaneously
+    final bluetoothFuture = _discoverBluetoothDevices();
+    final wifiServicesFuture = _discoverWiFiServices(timeout: timeout);
+
+    // Wait for both to complete
     try {
-      final localIP = await getLocalIPAddress();
-      if (localIP == null) {
-        print('Could not get local IP address');
-        return discoveredDevices;
-      }
+      final results = await Future.wait([bluetoothFuture, wifiServicesFuture]);
 
-      // Extract network subnet (assuming /24 subnet)
-      final ipParts = localIP.split('.');
-      if (ipParts.length != 4) return discoveredDevices;
+      // Combine results
+      final bluetoothDevices = results[0];
+      final wifiDevices = results[1];
 
-      final networkBase = '${ipParts[0]}.${ipParts[1]}.${ipParts[2]}';
-      print('Scanning network: $networkBase.0/24 on port $port');
+      discoveredDevices.addAll(bluetoothDevices);
+      discoveredDevices.addAll(wifiDevices);
 
-      // Scan a smaller range first for testing (can expand later)
-      final futures = <Future<void>>[];
-
-      // Scan common IP ranges first
-      final commonIPs = [
-        for (int i = 1; i <= 20; i++) '$networkBase.$i', // First 20
-        for (int i = 100; i <= 120; i++) '$networkBase.$i', // Common DHCP range
-        for (int i = 200; i <= 220; i++)
-          '$networkBase.$i', // Another common range
-      ];
-
-      for (final targetIP in commonIPs) {
-        // Skip our own IP
-        if (targetIP == localIP) continue;
-
-        futures.add(
-          _scanSingleDevice(targetIP, port, timeout)
-              .then((result) {
-                if (result != null) {
-                  print('Found Tong device at $targetIP');
-                  discoveredDevices.add(result);
-                }
-              })
-              .catchError((e) {
-                // Silently ignore connection errors (expected for most IPs)
-              }),
-        );
-      }
-
-      // Wait for all scans to complete
-      await Future.wait(futures);
-
-      // Sort by IP address
-      discoveredDevices.sort((a, b) => a['address'].compareTo(b['address']));
+      // Sort by connection strength/quality
+      discoveredDevices.sort((a, b) {
+        final aStrength = _getConnectionStrength(a);
+        final bStrength = _getConnectionStrength(b);
+        return bStrength.compareTo(aStrength);
+      });
 
       print(
-        'Network scan completed. Found ${discoveredDevices.length} devices',
+        'Device discovery completed. Found ${discoveredDevices.length} devices'
+        ' (${bluetoothDevices.length} Bluetooth, ${wifiDevices.length} WiFi)',
       );
       return discoveredDevices;
     } catch (e) {
-      print('Error during network discovery: $e');
+      print('Error during device discovery: $e');
       return discoveredDevices;
     }
   }
 
-  /// Scan a single IP address to see if it's running our service
-  Future<Map<String, dynamic>?> _scanSingleDevice(
-    String address,
-    int port,
-    Duration timeout,
-  ) async {
-    try {
-      // Try to connect
-      final socket = await Socket.connect(address, port).timeout(timeout);
+  /// Discover devices via Bluetooth
+  Future<List<Map<String, dynamic>>> _discoverBluetoothDevices() async {
+    final devices = <Map<String, dynamic>>[];
 
-      // Send a discovery ping
+    try {
+      if (_bluetoothService.isInitialized) {
+        await _bluetoothService.startScanning();
+
+        // Wait for scan results
+        await Future.delayed(Duration(seconds: 3));
+
+        for (final device in _bluetoothService.discoveredDevices) {
+          devices.add({
+            'id': device.platformName,
+            'name':
+                device.platformName.isNotEmpty
+                    ? device.platformName
+                    : 'Tong Device (Bluetooth)',
+            'type': 'Bluetooth',
+            'device': device,
+            'signal': 'Good', // Bluetooth signal quality
+            'available': true,
+            'last_seen': DateTime.now(),
+            'connection_method': 'bluetooth',
+          });
+        }
+
+        await _bluetoothService.stopScanning();
+      }
+    } catch (e) {
+      print('Error discovering Bluetooth devices: $e');
+    }
+
+    return devices;
+  }
+
+  /// Discover devices via WiFi service broadcasting (without IP scanning)
+  Future<List<Map<String, dynamic>>> _discoverWiFiServices({
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final discoveredDevices = <Map<String, dynamic>>[];
+
+    try {
+      // Clear previous discoveries
+      _connectedPeers.removeWhere((peer) => peer['type'] == 'WiFi_Discovery');
+
+      // Broadcast a discovery request
+      await _broadcastDiscoveryRequest();
+
+      // Wait for responses
+      await Future.delayed(timeout);
+
+      // Get devices that responded
+      final wifiDevices =
+          _connectedPeers
+              .where((peer) => peer['type'] == 'WiFi_Discovery')
+              .toList();
+
+      discoveredDevices.addAll(wifiDevices);
+
+      print(
+        'WiFi service discovery completed. Found ${discoveredDevices.length} devices',
+      );
+      return discoveredDevices;
+    } catch (e) {
+      print('Error during WiFi service discovery: $e');
+      return discoveredDevices;
+    }
+  }
+
+  /// Broadcast a discovery request on the local network
+  Future<void> _broadcastDiscoveryRequest() async {
+    try {
+      if (_discoverySocket == null) return;
+
       final discoveryMessage = jsonEncode({
-        'type': 'discovery_ping',
-        'sender': await getLocalIPAddress(),
+        'type': 'tong_discovery_request',
+        'service': 'Tong Messenger',
+        'version': '1.0.0',
+        'device_name': 'Tong Device',
         'timestamp': DateTime.now().toIso8601String(),
       });
 
-      socket.add(utf8.encode(discoveryMessage));
+      final data = utf8.encode(discoveryMessage);
 
-      // Wait for response
-      final completer = Completer<String>();
-      late StreamSubscription subscription;
+      // Broadcast to local network
+      final localIP = await getLocalIPAddress();
+      if (localIP != null) {
+        final ipParts = localIP.split('.');
+        if (ipParts.length == 4) {
+          final broadcastAddress =
+              '${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.255';
+          _discoverySocket!.send(data, InternetAddress(broadcastAddress), 8081);
+        }
+      }
 
-      subscription = socket.listen(
-        (data) {
-          final responseData = utf8.decode(data);
-          completer.complete(responseData);
-          subscription.cancel();
-        },
-        onError: (error) {
-          if (!completer.isCompleted) completer.completeError(error);
-        },
-        onDone: () {
-          if (!completer.isCompleted) {
-            completer.completeError('Connection closed');
-          }
-        },
-      );
+      // Also send to global broadcast
+      _discoverySocket!.send(data, InternetAddress('255.255.255.255'), 8081);
 
-      final responseData = await completer.future.timeout(timeout);
-      await socket.close();
+      print('Discovery request broadcasted');
+    } catch (e) {
+      print('Error broadcasting discovery request: $e');
+    }
+  }
 
-      try {
-        final responseJson = jsonDecode(responseData);
-        if (responseJson['type'] == 'discovery_pong') {
-          return {
-            'address': address,
-            'port': port,
-            'type': 'TCP',
-            'name': responseJson['device_name'] ?? 'Tong Device at $address',
+  /// Handle discovery message from other devices
+  void _handleDiscoveryMessage(Datagram datagram) {
+    try {
+      final message = utf8.decode(datagram.data);
+      final messageData = jsonDecode(message);
+
+      if (messageData['type'] == 'tong_discovery_request') {
+        // Respond to discovery request
+        _sendDiscoveryResponse(datagram.address, datagram.port);
+      } else if (messageData['type'] == 'tong_discovery_response') {
+        // Handle discovery response - a device found us
+        final deviceId =
+            messageData['device_id'] ??
+            'unknown_${DateTime.now().millisecondsSinceEpoch}';
+
+        // Check if we already know about this device
+        final existingDevice = _connectedPeers.firstWhere(
+          (peer) => peer['id'] == deviceId,
+          orElse: () => {},
+        );
+
+        if (existingDevice.isEmpty) {
+          _connectedPeers.add({
+            'id': deviceId,
+            'name': messageData['device_name'] ?? 'Tong Device (WiFi)',
+            'type': 'WiFi_Discovery',
             'signal': 'Good',
             'available': true,
             'last_seen': DateTime.now(),
-          };
+            'connection_method': 'wifi',
+            '_internal_address': datagram.address.address,
+            '_internal_port': messageData['tcp_port'] ?? 8080,
+          });
+          notifyListeners();
+          print(
+            'Discovered WiFi device: ${messageData['device_name']} at ${datagram.address.address}',
+          );
         }
-      } catch (e) {
-        // Response wasn't valid JSON or expected format
-        print('Invalid response from $address: $responseData');
       }
-
-      return null;
     } catch (e) {
-      // Connection failed - device not available or not running our service
-      // This is expected for most IPs, so we don't log it
-      return null;
+      print('Error handling discovery message: $e');
     }
+  }
+
+  /// Send discovery response to a requesting device
+  Future<void> _sendDiscoveryResponse(InternetAddress address, int port) async {
+    try {
+      if (_discoverySocket == null) return;
+
+      final response = jsonEncode({
+        'type': 'tong_discovery_response',
+        'device_id': 'tong_${DateTime.now().millisecondsSinceEpoch}',
+        'device_name': 'Tong Messenger Device',
+        'service': 'Tong Messenger',
+        'version': '1.0.0',
+        'tcp_port': 8080,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      final data = utf8.encode(response);
+      _discoverySocket!.send(data, address, port);
+
+      print('Discovery response sent to ${address.address}:$port');
+    } catch (e) {
+      print('Error sending discovery response: $e');
+    }
+  }
+
+  /// Get connection strength score for sorting
+  int _getConnectionStrength(Map<String, dynamic> device) {
+    // Prioritize Bluetooth over WiFi for better reliability
+    if (device['type'] == 'Bluetooth') return 100;
+    if (device['type'] == 'WiFi_Discovery') return 80;
+    return 50; // TCP fallback
+  }
+
+  // Legacy methods for backward compatibility with settings screen
+
+  /// Get available WiFi networks (placeholder - requires platform-specific implementation)
+  Future<List<Map<String, dynamic>>> getAvailableWiFiNetworks() async {
+    // This would require platform-specific WiFi scanning
+    // For now, return empty list with a note
+    return [
+      {
+        'name': 'WiFi scanning not available',
+        'type': 'Info',
+        'signal': 'Use device WiFi settings to connect to networks',
+        'available': false,
+      },
+    ];
   }
 
   /// Get available Bluetooth devices
   Future<List<Map<String, dynamic>>> getAvailableBluetoothDevices() async {
     try {
-      print("NetworkingService: Getting Bluetooth devices...");
-
-      // Check Bluetooth status first
-      final status = await _bluetoothService.getBluetoothStatus();
-      print("Bluetooth status: $status");
-
       if (!_bluetoothService.isInitialized) {
-        print("Bluetooth not initialized, attempting to initialize...");
-        final initialized = await _bluetoothService.initialize();
-        if (!initialized) {
-          print("Failed to initialize Bluetooth");
-          return [
-            {
-              'name': 'Bluetooth unavailable',
-              'type': 'Error',
-              'signal': 'Status: $status',
-              'available': false,
-              'category': 'Bluetooth Error',
-              'info': true,
-            },
-          ];
-        }
+        await _bluetoothService.initialize();
       }
 
-      if (_bluetoothService.isInitialized) {
-        print("Starting Bluetooth scan...");
-        await _bluetoothService.startScanning();
-        // Wait a bit for scan results
-        await Future.delayed(Duration(seconds: 8));
-        final devices = _bluetoothService.getDiscoveredDevicesAsMap();
-        print("Found ${devices.length} Bluetooth devices");
+      await _bluetoothService.startScanning();
+      await Future.delayed(Duration(seconds: 3));
 
-        if (devices.isEmpty) {
-          return [
-            {
-              'name': 'No Bluetooth devices found',
-              'type': 'Info',
-              'signal':
-                  'Make sure other devices have Bluetooth enabled and discoverable',
-              'available': false,
-              'category': 'Bluetooth Scan Result',
-              'info': true,
-            },
-          ];
-        }
-
-        return devices;
+      final devices = <Map<String, dynamic>>[];
+      for (final device in _bluetoothService.discoveredDevices) {
+        devices.add({
+          'name':
+              device.platformName.isNotEmpty
+                  ? device.platformName
+                  : 'Unknown Device',
+          'type': 'Bluetooth',
+          'signal': 'Good',
+          'available': true,
+          'device': device,
+          'address': device.remoteId.toString(),
+        });
       }
 
-      return [
-        {
-          'name': 'Bluetooth initialization failed',
-          'type': 'Error',
-          'signal': 'Status: $status',
-          'available': false,
-          'category': 'Bluetooth Error',
-          'info': true,
-        },
-      ];
+      await _bluetoothService.stopScanning();
+      return devices;
     } catch (e) {
       print('Error getting Bluetooth devices: $e');
-      return [
-        {
-          'name': 'Bluetooth error',
-          'type': 'Error',
-          'signal': 'Error: $e',
-          'available': false,
-          'category': 'Bluetooth Error',
-          'info': true,
-        },
-      ];
+      return [];
     }
   }
 
+  /// Legacy method - use discoverDevices() instead
+  Future<List<Map<String, dynamic>>> discoverNetworkDevices() async {
+    final devices = await discoverDevices();
+    // Filter to only show WiFi devices for backward compatibility
+    return devices.where((device) => device['type'] != 'Bluetooth').toList();
+  }
+
   /// Connect to a Bluetooth device
-  Future<bool> connectToBluetoothDevice(Map<String, dynamic> deviceInfo) async {
+  Future<bool> connectToBluetoothDevice(Map<String, dynamic> device) async {
     try {
-      final device = deviceInfo['device'];
-      if (device != null) {
-        final success = await _bluetoothService.connectToDevice(device);
-        if (success) {
-          _connectedPeers.add(deviceInfo);
-          notifyListeners();
-        }
-        return success;
+      final bluetoothDevice = device['device'];
+      if (bluetoothDevice != null) {
+        return await _bluetoothService.connectToDevice(bluetoothDevice);
       }
       return false;
     } catch (e) {
       print('Error connecting to Bluetooth device: $e');
       return false;
     }
-  }
-
-  /// Get available WiFi networks (simplified version)
-  Future<List<Map<String, dynamic>>> getAvailableWiFiNetworks() async {
-    // Note: Real WiFi scanning requires platform-specific implementations
-    // This is a simplified version that just returns network interface info
-    final networks = <Map<String, dynamic>>[];
-
-    try {
-      final interfaces = await NetworkInterface.list();
-
-      for (final interface in interfaces) {
-        if (interface.name.toLowerCase().contains('wi-fi') ||
-            interface.name.toLowerCase().contains('wlan') ||
-            interface.name.toLowerCase().contains('wireless')) {
-          for (final address in interface.addresses) {
-            if (!address.isLoopback &&
-                address.type == InternetAddressType.IPv4) {
-              networks.add({
-                'name': interface.name,
-                'type': 'WiFi',
-                'address': address.address,
-                'signal': 'Connected',
-                'available': true,
-                'interface': interface.name,
-              });
-            }
-          }
-        }
-      }
-
-      return networks;
-    } catch (e) {
-      print('Error getting WiFi networks: $e');
-      return networks;
-    }
-  }
-
-  @override
-  void dispose() {
-    disconnect();
-    super.dispose();
   }
 }
 
@@ -547,6 +648,7 @@ class NetworkMessage {
   final String senderName;
   final String content;
   final DateTime timestamp;
+  // Message type (e.g., 'text')
   final String type;
 
   NetworkMessage({
@@ -571,11 +673,11 @@ class NetworkMessage {
 
   factory NetworkMessage.fromJson(Map<String, dynamic> json) {
     return NetworkMessage(
-      id: json['id'],
-      senderId: json['senderId'],
-      senderName: json['senderName'],
-      content: json['content'],
-      timestamp: DateTime.parse(json['timestamp']),
+      id: json['id'] ?? '',
+      senderId: json['senderId'] ?? '',
+      senderName: json['senderName'] ?? '',
+      content: json['content'] ?? '',
+      timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
       type: json['type'] ?? 'text',
     );
   }

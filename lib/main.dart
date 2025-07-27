@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:io'; // For Platform detection
 import 'screens/settings_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/unsupported_platform_screen.dart';
 import 'services/networking_service.dart';
 import 'services/local_auth_service.dart'; // Changed to local auth
 import 'providers/theme_provider.dart';
@@ -14,6 +16,16 @@ final authService = LocalAuthService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Check platform support - only Android, iOS, and Windows are supported
+  if (!Platform.isAndroid && !Platform.isIOS && !Platform.isWindows) {
+    print('WARNING: Unsupported platform detected.');
+    print('Tong Messenger is designed for Android, iOS, and Windows only.');
+
+    // Show unsupported platform screen
+    runApp(UnsupportedPlatformScreen());
+    return;
+  }
 
   // Note: Firebase is disabled for development
   // To enable Firebase, create a project and configure firebase_options.dart
@@ -67,6 +79,9 @@ class _TongAppState extends State<TongApp> {
         '/signup': (context) => SignupScreen(),
         '/home': (context) => MessagingScreen(),
         '/settings': (context) => SettingsScreen(),
+        '/bluetooth_diagnostics':
+            (context) =>
+                BluetoothDiagnosticsScreen(), // Add route for Bluetooth diagnostics
         '/profile': (context) => ProfileScreen(),
       },
     );
@@ -156,6 +171,14 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 8),
+              Text(
+                'Available on Android, iOS & Windows',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
 
               const SizedBox(height: 40),
 
@@ -178,28 +201,33 @@ class WelcomeScreen extends StatelessWidget {
                         children: [
                           _buildFeatureItem(
                             context,
-                            Icons.security,
-                            'Secure Authentication',
-                          ),
-                          _buildFeatureItem(
-                            context,
                             Icons.bluetooth,
-                            'Bluetooth Connectivity',
+                            'Bluetooth Discovery',
+                            'Find nearby devices automatically',
                           ),
                           _buildFeatureItem(
                             context,
-                            Icons.cloud_sync,
-                            'Cloud Synchronization',
+                            Icons.wifi,
+                            'WiFi Mesh Networking',
+                            'Connect devices on same network',
+                          ),
+                          _buildFeatureItem(
+                            context,
+                            Icons.security,
+                            'No IP Addresses',
+                            'Smart discovery without manual setup',
                           ),
                           _buildFeatureItem(
                             context,
                             Icons.offline_bolt,
                             'Offline Support',
+                            'Works without internet connection',
                           ),
                           _buildFeatureItem(
                             context,
                             Icons.people,
                             'User Management',
+                            'Secure local user profiles',
                           ),
                         ],
                       ),
@@ -260,14 +288,39 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureItem(BuildContext context, IconData icon, String text) {
+  Widget _buildFeatureItem(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String description,
+  ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 12),
-          Text(text, style: Theme.of(context).textTheme.bodyMedium),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -335,60 +388,218 @@ class _MessagingScreenState extends State<MessagingScreen> {
   }
 
   void _showConnectionDialog() async {
-    final localIP = await _networkingService.getLocalIPAddress();
+    // Capture parent context to use for navigation and snack bars
+    final parentContext = context;
 
+    String selectedType = 'All';
     showDialog(
-      context: context,
+      context: parentContext,
       builder: (context) {
-        String targetIP = '';
-        return AlertDialog(
-          title: Text('Connect to Device'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Your IP Address: ${localIP ?? 'Unknown'}'),
-              SizedBox(height: 16),
-              Text(
-                'Share this IP with other users so they can connect to you.',
-              ),
-              SizedBox(height: 16),
-              Text('Or enter an IP address to connect to:'),
-              SizedBox(height: 8),
-              TextField(
-                onChanged: (value) => targetIP = value,
-                decoration: InputDecoration(
-                  hintText: 'e.g., 192.168.1.100',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (targetIP.trim().isNotEmpty) {
-                  Navigator.pop(context);
-                  final success = await _networkingService.connectToDevice(
-                    targetIP.trim(),
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        success ? 'Connected!' : 'Connection failed',
-                      ),
-                      backgroundColor: success ? Colors.green : Colors.red,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('Connect to Device'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Transport selection chips
+                  Wrap(
+                    spacing: 8,
+                    children:
+                        ['All', 'Bluetooth', 'WiFi'].map((type) {
+                          final isSelected = selectedType == type;
+                          return ChoiceChip(
+                            label: Text(type),
+                            selected: isSelected,
+                            onSelected: (_) {
+                              setState(() {
+                                selectedType = type;
+                              });
+                            },
+                          );
+                        }).toList(),
+                  ),
+                  Text(
+                    'Searching for nearby devices...',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Available devices will appear here:',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  SizedBox(height: 16),
+                  SizedBox(
+                    height: 200,
+                    width: double.maxFinite,
+                    child: FutureBuilder<List<Map<String, dynamic>>>(
+                      future: _networkingService.discoverDevices(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircularProgressIndicator(),
+                                SizedBox(height: 8),
+                                Text('Discovering devices...'),
+                              ],
+                            ),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error, color: Colors.red),
+                                SizedBox(height: 8),
+                                Text('Discovery failed'),
+                              ],
+                            ),
+                          );
+                        }
+
+                        var devices = snapshot.data ?? [];
+                        if (selectedType != 'All') {
+                          devices =
+                              devices
+                                  .where((d) => d['type'] == selectedType)
+                                  .toList();
+                        }
+
+                        if (devices.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.devices_other, color: Colors.grey),
+                                SizedBox(height: 8),
+                                Text('No devices found'),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Make sure Bluetooth and WiFi are enabled',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          itemCount: devices.length,
+                          itemBuilder: (context, index) {
+                            final device = devices[index];
+                            return ListTile(
+                              leading: Icon(
+                                device['type'] == 'Bluetooth'
+                                    ? Icons.bluetooth
+                                    : Icons.wifi,
+                                color:
+                                    device['type'] == 'Bluetooth'
+                                        ? Colors.blue
+                                        : Colors.green,
+                              ),
+                              title: Text(device['name'] ?? 'Unknown Device'),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${device['type']} • ${device['signal']}',
+                                  ),
+                                  if (device['type'] == 'Bluetooth')
+                                    Text(
+                                      'Tap to connect via Bluetooth',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.blue[600],
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      'Tap to connect via WiFi',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.green[600],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                              onTap: () async {
+                                // Close discovery dialog using parent context
+                                Navigator.pop(parentContext);
+
+                                // Show connecting dialog on parent context
+                                showDialog(
+                                  context: parentContext,
+                                  barrierDismissible: false,
+                                  builder:
+                                      (context) => AlertDialog(
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CircularProgressIndicator(),
+                                            SizedBox(height: 16),
+                                            Text(
+                                              'Connecting to ${device['name']}...',
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                );
+
+                                final success = await _networkingService
+                                    .connectToDiscoveredDevice(device);
+
+                                // Close connecting dialog
+                                Navigator.pop(parentContext);
+
+                                // Show result using parent context's ScaffoldMessenger
+                                ScaffoldMessenger.of(
+                                  parentContext,
+                                ).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      success
+                                          ? 'Connected to ${device['name']}!'
+                                          : 'Failed to connect to ${device['name']}',
+                                    ),
+                                    backgroundColor:
+                                        success ? Colors.green : Colors.red,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
                     ),
-                  );
-                }
-              },
-              child: Text('Connect'),
-            ),
-          ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Restart discovery
+                    _showConnectionDialog();
+                  },
+                  child: Text('Refresh'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

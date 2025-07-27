@@ -84,15 +84,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     trailing: Icon(Icons.arrow_forward_ios),
                     onTap: _openNetworkDiscovery,
                   ),
+                  // Bluetooth diagnostics disabled until support is implemented
                   ListTile(
                     leading: Icon(
                       Icons.bluetooth_searching,
                       color: Colors.blue,
                     ),
                     title: Text('Bluetooth Diagnostics'),
-                    subtitle: Text('Check Bluetooth status and troubleshoot'),
+                    subtitle: Text('Run Bluetooth diagnostics'),
                     trailing: Icon(Icons.arrow_forward_ios),
-                    onTap: _openBluetoothDiagnostics,
+                    onTap: () {
+                      // Navigate to Bluetooth diagnostics screen
+                      Navigator.pushNamed(context, '/bluetooth_diagnostics');
+                    },
                   ),
                 ],
               ),
@@ -303,13 +307,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _openBluetoothDiagnostics() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => BluetoothDiagnosticsScreen()),
-    );
-  }
-
   void _showHelpDialog() {
     showDialog(
       context: context,
@@ -391,40 +388,38 @@ class _NetworkDiscoveryScreenState extends State<NetworkDiscoveryScreen> {
         });
       }
 
-      // Get WiFi networks
-      final wifiNetworks = await _networkingService.getAvailableWiFiNetworks();
-      print('Found ${wifiNetworks.length} WiFi networks');
+      // Use the new unified discovery method
+      print('Starting unified device discovery...');
+      final allDevices = await _networkingService.discoverDevices();
+      print('Found ${allDevices.length} total devices');
 
-      // Scan for Bluetooth devices
-      print('Scanning for Bluetooth devices...');
+      // Separate devices by type for better display
       final bluetoothDevices =
-          await _networkingService.getAvailableBluetoothDevices();
-      print('Found ${bluetoothDevices.length} Bluetooth devices');
-
-      // Scan for Tong devices on the local network
-      print('Scanning for Tong devices...');
-      final tongDevices = await _networkingService.discoverNetworkDevices();
-      print('Found ${tongDevices.length} Tong devices');
+          allDevices.where((d) => d['type'] == 'Bluetooth').toList();
+      final wifiDevices =
+          allDevices.where((d) => d['type'] != 'Bluetooth').toList();
 
       if (mounted) {
         setState(() {
-          // Add WiFi networks
-          _discoveredDevices.addAll(
-            wifiNetworks.map(
-              (network) => {...network, 'category': 'WiFi Network'},
-            ),
-          );
+          // Add local device info first
+          _discoveredDevices.add({
+            'name': 'This Device',
+            'type': 'Local',
+            'address': localIP,
+            'signal': 'Local',
+            'available': true,
+            'category': 'Local Device',
+          });
 
-          // Add Bluetooth devices
+          // Add discovered devices
           _discoveredDevices.addAll(
             bluetoothDevices.map(
               (device) => {...device, 'category': 'Bluetooth Device'},
             ),
           );
 
-          // Add discovered Tong devices
           _discoveredDevices.addAll(
-            tongDevices.map((device) => {...device, 'category': 'Tong Device'}),
+            wifiDevices.map((device) => {...device, 'category': 'WiFi Device'}),
           );
 
           // Add helpful info if no devices found
@@ -435,27 +430,18 @@ class _NetworkDiscoveryScreenState extends State<NetworkDiscoveryScreen> {
                 'name': 'No other devices found',
                 'type': 'Info',
                 'signal':
-                    'Scanned WiFi: ${localIP?.split('.').take(3).join('.')}.1-254\nScanned Bluetooth: ${bluetoothDevices.length} devices',
+                    'Scanned Bluetooth and WiFi networks\nFound ${bluetoothDevices.length} Bluetooth + ${wifiDevices.length} WiFi devices',
                 'available': false,
                 'category': 'Scan Result',
                 'info': true,
               },
               {
-                'name': 'To connect with friends via Bluetooth',
+                'name': 'To connect with friends',
                 'type': 'Info',
                 'signal':
-                    '1. Both devices: Go to Android Settings → Bluetooth\n2. Change device name to include "Tong" (e.g., "John\'s Tong Phone")\n3. Make sure devices are discoverable\n4. Refresh this scan',
+                    '1. Both devices: Install Tong Messenger\n2. Enable Bluetooth and WiFi\n3. Use the Connect button in main chat screen\n4. Devices will appear automatically',
                 'available': false,
                 'category': 'How to Connect',
-                'info': true,
-              },
-              {
-                'name': 'To connect via WiFi/IP',
-                'type': 'Info',
-                'signal':
-                    '1. Share your IP: $localIP\n2. Ask them to install Tong\n3. Use manual connect with your IP address',
-                'available': false,
-                'category': 'WiFi Connection',
                 'info': true,
               },
             ]);
@@ -745,16 +731,6 @@ class _NetworkDiscoveryScreenState extends State<NetworkDiscoveryScreen> {
               onPressed: () => Navigator.pop(context),
               child: Text('Cancel'),
             ),
-            if (isBluetoothDevice &&
-                device['bondState'] == 'BluetoothBondState.none')
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _pairWithDevice(device);
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                child: Text('Pair First'),
-              ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
@@ -778,12 +754,15 @@ class _NetworkDiscoveryScreenState extends State<NetworkDiscoveryScreen> {
 
     try {
       bool success = false;
-      final deviceType = device['type'];
+      final isDirectConnection = device['address'] != null;
+      final isBluetoothDevice =
+          device['connection_method'] == 'bluetooth' ||
+          device['type'] == 'Bluetooth';
 
-      if (deviceType == 'Bluetooth') {
-        // Try Bluetooth connection
-        success = await _networkingService.connectToBluetoothDevice(device);
-      } else if (device['address'] != null) {
+      if (isBluetoothDevice) {
+        // Try Bluetooth connection using new method
+        success = await _networkingService.connectToDiscoveredDevice(device);
+      } else if (isDirectConnection) {
         // Try direct TCP connection
         success = await _networkingService.connectToDevice(
           device['address'],
@@ -791,12 +770,14 @@ class _NetworkDiscoveryScreenState extends State<NetworkDiscoveryScreen> {
         );
       }
 
+      final connectionType = isBluetoothDevice ? 'Bluetooth' : 'WiFi';
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               success
-                  ? 'Connected to ${device['name']} via $deviceType!'
+                  ? 'Connected to ${device['name']} via $connectionType!'
                   : 'Failed to connect to ${device['name']}',
             ),
             backgroundColor: success ? Colors.green : Colors.red,
@@ -813,47 +794,6 @@ class _NetworkDiscoveryScreenState extends State<NetworkDiscoveryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Connection error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  void _pairWithDevice(Map<String, dynamic> device) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Pairing with ${device['name']}...'),
-        backgroundColor: Colors.orange,
-      ),
-    );
-
-    try {
-      final bluetoothService = _networkingService.bluetoothService;
-      final success = await bluetoothService.pairWithDevice(device['device']);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success
-                  ? 'Successfully paired with ${device['name']}!'
-                  : 'Failed to pair with ${device['name']}',
-            ),
-            backgroundColor: success ? Colors.green : Colors.red,
-          ),
-        );
-
-        if (success) {
-          // Refresh the device list to show updated pairing status
-          _startScanning();
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Pairing error: $e'),
             backgroundColor: Colors.red,
           ),
         );

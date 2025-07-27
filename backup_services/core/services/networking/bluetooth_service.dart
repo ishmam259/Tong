@@ -1,3 +1,5 @@
+import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
+
 class BluetoothService {
   bool _isInitialized = false;
   bool _isScanning = false;

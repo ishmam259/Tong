@@ -2,7 +2,15 @@
 
 An advanced multi-network messaging application built with Flutter that supports anonymous identity management, multi-network connectivity (Internet, Bluetooth Classic, BLE), and various chat space types.
 
-## 🚀 Features
+## � Supported Platforms
+
+- **Android** (Primary target)
+- **iOS** (Primary target) 
+- **Windows** (Secondary support)
+
+> **Note:** Linux and macOS are not supported in this version.
+
+## �🚀 Features
 
 ### Anonymous Identity Management
 - **System-Generated Nicknames**: Automatically generated anonymous identities

@@ -3,7 +3,7 @@ import 'package:email_validator/email_validator.dart';
 import '../../main.dart'; // Import to access global authService
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();

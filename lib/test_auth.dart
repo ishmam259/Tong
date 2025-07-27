@@ -19,6 +19,8 @@ void main() async {
 }
 
 class TestAuthApp extends StatelessWidget {
+  const TestAuthApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -30,6 +32,8 @@ class TestAuthApp extends StatelessWidget {
 }
 
 class TestAuthScreen extends StatefulWidget {
+  const TestAuthScreen({super.key});
+
   @override
   _TestAuthScreenState createState() => _TestAuthScreenState();
 }

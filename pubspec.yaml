@@ -1,8 +1,11 @@
 name: tong
-description: "Tong - Advanced Multi-Network Messaging App"
+description: "Tong - Advanced Multi-Network Messaging App for Android, iOS, and Windows"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# Platform Support: Android, iOS, Windows only
+# Note: Linux and macOS are not supported
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -35,7 +38,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   
   # Networking and Bluetooth
-  flutter_blue_plus: ^1.32.12
+  flutter_blue_plus: ^1.32.12    # retained for legacy support
+  flutter_reactive_ble: ^5.0.2    # reactive BLE for central + peripheral
   permission_handler: ^11.3.1
   
   # Basic utilities only
