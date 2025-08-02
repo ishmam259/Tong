@@ -20,7 +20,7 @@ class NetworkingService extends ChangeNotifier {
   final List<Socket> _clientConnections = [];
 
   // Bluetooth networking
-  final BluetoothService _bluetoothService = BluetoothService();
+  final BluetoothService _bluetoothService = BluetoothService.instance;
 
   // UDP socket for device discovery
   RawDatagramSocket? _discoverySocket;
@@ -163,15 +163,12 @@ class NetworkingService extends ChangeNotifier {
   /// Connect to a discovered device by ID (not IP address)
   Future<bool> connectToDiscoveredDevice(Map<String, dynamic> device) async {
     try {
-      // Handle Bluetooth devices (Reactive BLE)
       if (device['type'] == 'Bluetooth') {
         final deviceId = device['address'] as String?;
         if (deviceId != null) {
           final bleSvc = BluetoothService.instance;
           bleSvc.setMessageHandler(_onMessageReceived!);
-          bleSvc.scanAndConnect();
-          // Give some time to connect
-          await Future.delayed(Duration(seconds: 5));
+          await bleSvc.connectToDeviceId(deviceId);
           return bleSvc.isConnected;
         }
         return false;
@@ -393,36 +390,31 @@ class NetworkingService extends ChangeNotifier {
   /// Discover devices via Bluetooth
   Future<List<Map<String, dynamic>>> _discoverBluetoothDevices() async {
     final devices = <Map<String, dynamic>>[];
-
     try {
       if (_bluetoothService.isInitialized) {
         await _bluetoothService.startScanning();
-
-        // Wait for scan results
         await Future.delayed(Duration(seconds: 3));
-
         for (final device in _bluetoothService.discoveredDevices) {
           devices.add({
-            'id': device.platformName,
+            'id': device.id,
             'name':
-                device.platformName.isNotEmpty
-                    ? device.platformName
+                device.name.isNotEmpty
+                    ? device.name
                     : 'Tong Device (Bluetooth)',
             'type': 'Bluetooth',
             'device': device,
-            'signal': 'Good', // Bluetooth signal quality
+            'signal': 'Good',
             'available': true,
             'last_seen': DateTime.now(),
             'connection_method': 'bluetooth',
+            'address': device.id,
           });
         }
-
         await _bluetoothService.stopScanning();
       }
     } catch (e) {
       print('Error discovering Bluetooth devices: $e');
     }
-
     return devices;
   }
 
@@ -593,25 +585,19 @@ class NetworkingService extends ChangeNotifier {
       if (!_bluetoothService.isInitialized) {
         await _bluetoothService.initialize();
       }
-
       await _bluetoothService.startScanning();
       await Future.delayed(Duration(seconds: 3));
-
       final devices = <Map<String, dynamic>>[];
       for (final device in _bluetoothService.discoveredDevices) {
         devices.add({
-          'name':
-              device.platformName.isNotEmpty
-                  ? device.platformName
-                  : 'Unknown Device',
+          'name': device.name.isNotEmpty ? device.name : 'Unknown Device',
           'type': 'Bluetooth',
           'signal': 'Good',
           'available': true,
           'device': device,
-          'address': device.remoteId.toString(),
+          'address': device.id,
         });
       }
-
       await _bluetoothService.stopScanning();
       return devices;
     } catch (e) {
@@ -631,8 +617,8 @@ class NetworkingService extends ChangeNotifier {
   Future<bool> connectToBluetoothDevice(Map<String, dynamic> device) async {
     try {
       final bluetoothDevice = device['device'];
-      if (bluetoothDevice != null) {
-        return await _bluetoothService.connectToDevice(bluetoothDevice);
+      if (bluetoothDevice != null && bluetoothDevice.id != null) {
+        return await _bluetoothService.connectToDeviceId(bluetoothDevice.id);
       }
       return false;
     } catch (e) {

@@ -1,36 +1,26 @@
 {
   "project_info": {
-    "project_number": "123456789",
-    "project_id": "your-project-id",
-    "storage_bucket": "your-project-id.appspot.com"
+    "project_number": "18427902073",
+    "project_id": "tong-6b5fd",
+    "storage_bucket": "tong-6b5fd.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789:android:abcdef123456",
+        "mobilesdk_app_id": "1:18427902073:android:4ebfd104d7e91b7333fca8",
         "android_client_info": {
           "package_name": "com.example.tong"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "123456789-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "your-api-key-here"
+          "current_key": "AIzaSyCOKUdGLQ2J0rzymH1gZDSFLT0Jv1WIj_A"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "123456789-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }

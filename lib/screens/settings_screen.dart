@@ -877,7 +877,7 @@ class _BluetoothDiagnosticsScreenState
         for (var device in devices) {
           if (!mounted) return; // Check during loop
           _addResult(
-            '  - ${device.platformName.isNotEmpty ? device.platformName : 'Unknown'} (${device.remoteId})',
+            '  - ${device.name.isNotEmpty ? device.name : 'Unknown'} (${device.id})',
           );
         }
       }

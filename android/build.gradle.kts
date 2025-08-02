@@ -6,6 +6,7 @@ buildscript {
     }
     dependencies {
         // Firebase classpath removed - using local authentication
+        // classpath("com.google.gms:google-services:4.4.0")
     }
 }
 
@@ -26,6 +27,15 @@ subprojects {
     afterEvaluate {
         if (project.name == "app") {
             // App-specific configuration if needed
+        }
+    }
+    
+    // Configure Java toolchain for all subprojects
+    plugins.withType<JavaPlugin> {
+        configure<JavaPluginExtension> {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(24)
+            }
         }
     }
 }

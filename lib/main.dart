@@ -8,6 +8,8 @@ import 'screens/unsupported_platform_screen.dart';
 import 'services/networking_service.dart';
 import 'services/local_auth_service.dart'; // Changed to local auth
 import 'providers/theme_provider.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'dart:typed_data'; // Required for Uint8List
 
 // Global theme provider instance
 final themeProvider = ThemeProvider();
@@ -83,6 +85,8 @@ class _TongAppState extends State<TongApp> {
             (context) =>
                 BluetoothDiagnosticsScreen(), // Add route for Bluetooth diagnostics
         '/profile': (context) => ProfileScreen(),
+        '/bluetooth_chat':
+            (context) => BluetoothChatScreen(), // Add route for Bluetooth chat
       },
     );
   }
@@ -861,6 +865,81 @@ class _MessagingScreenState extends State<MessagingScreen> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BluetoothChatScreen extends StatefulWidget {
+  const BluetoothChatScreen({super.key});
+
+  @override
+  _BluetoothChatScreenState createState() => _BluetoothChatScreenState();
+}
+
+class _BluetoothChatScreenState extends State<BluetoothChatScreen> {
+  BluetoothState _bluetoothState = BluetoothState.UNKNOWN;
+  BluetoothConnection? _connection;
+  String _messageBuffer = '';
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    FlutterBluetoothSerial.instance.state.then((state) {
+      setState(() => _bluetoothState = state);
+    });
+    FlutterBluetoothSerial.instance.onStateChanged().listen((state) {
+      setState(() => _bluetoothState = state);
+    });
+  }
+
+  void _connectToDevice(BluetoothDevice device) async {
+    BluetoothConnection.toAddress(device.address).then((conn) {
+      setState(() => _connection = conn);
+      conn.input?.listen((data) {
+        setState(() {
+          _messageBuffer += String.fromCharCodes(data);
+        });
+      });
+    });
+  }
+
+  void _sendMessage(String text) {
+    _connection?.output.add(Uint8List.fromList(text.codeUnits));
+    setState(() {
+      _messageBuffer += '\nMe: $text';
+      _controller.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Bluetooth Chat')),
+      body: Column(
+        children: [
+          Text('Bluetooth status: $_bluetoothState'),
+          ElevatedButton(
+            onPressed: () async {
+              final device = await FlutterBluetoothSerial.instance
+                  .getBondedDevices()
+                  .then((devices) => devices.first);
+              _connectToDevice(device);
+            },
+            child: Text('Connect to first paired device'),
+          ),
+          Expanded(child: SingleChildScrollView(child: Text(_messageBuffer))),
+          Row(
+            children: [
+              Expanded(child: TextField(controller: _controller)),
+              IconButton(
+                icon: Icon(Icons.send),
+                onPressed: () => _sendMessage(_controller.text),
+              ),
+            ],
           ),
         ],
       ),

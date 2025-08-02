@@ -2,7 +2,7 @@ name: tong
 description: "Tong - Advanced Multi-Network Messaging App for Android, iOS, and Windows"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # Platform Support: Android, iOS, Windows only
 # Note: Linux and macOS are not supported
@@ -36,27 +36,29 @@ dependencies:
 
   # UI and State Management
   cupertino_icons: ^1.0.8
-  
+  firebase_core: ^4.0.0
+
   # Networking and Bluetooth
-  flutter_blue_plus: ^1.32.12    # retained for legacy support
-  flutter_reactive_ble: ^5.0.2    # reactive BLE for central + peripheral
+  flutter_reactive_ble: ^5.4.0 # reactive BLE for central + peripheral
+  flutter_bluetooth_serial:
+    path: ./custom_plugins/flutter_bluetooth_serial
   permission_handler: ^11.3.1
-  
+
   # Basic utilities only
   uuid: ^4.4.0
   crypto: ^3.0.3
-  
+
   # Date and time
   intl: ^0.19.0
   shared_preferences: ^2.5.3
-  
+
   # Authentication and Database (Local only)
   # firebase_core: ^3.6.0    # Removed - using local auth
   # firebase_auth: ^5.3.1    # Removed - using local auth
   # cloud_firestore: ^5.4.3  # Removed - using local auth
   sqflite: ^2.3.3
   path: ^1.9.0
-  
+
   # Form validation and UI
   email_validator: ^2.1.17
 
@@ -72,7 +74,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
