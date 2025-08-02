@@ -13,8 +13,10 @@ import './SelectBondedDevicePage.dart';
 // import './helpers/LineChart.dart';
 
 class MainPage extends StatefulWidget {
+  const MainPage({Key? key}) : super(key: key);
+
   @override
-  _MainPage createState() => new _MainPage();
+  _MainPage createState() => _MainPage();
 }
 
 class _MainPage extends State<MainPage> {
@@ -103,10 +105,11 @@ class _MainPage extends State<MainPage> {
                 // Do the request and update with the true value then
                 future() async {
                   // async lambda seems to not working
-                  if (value)
+                  if (value) {
                     await FlutterBluetoothSerial.instance.requestEnable();
-                  else
+                  } else {
                     await FlutterBluetoothSerial.instance.requestDisable();
+                  }
                 }
 
                 future().then((_) {
@@ -229,7 +232,7 @@ class _MainPage extends State<MainPage> {
                     );
 
                     if (selectedDevice != null) {
-                      print('Discovery -> selected ' + selectedDevice.address);
+                      print('Discovery -> selected ${selectedDevice.address}');
                     } else {
                       print('Discovery -> no device selected');
                     }
@@ -249,7 +252,7 @@ class _MainPage extends State<MainPage> {
                   );
 
                   if (selectedDevice != null) {
-                    print('Connect -> selected ' + selectedDevice.address);
+                    print('Connect -> selected ${selectedDevice.address}');
                     _startChat(context, selectedDevice);
                   } else {
                     print('Connect -> no device selected');
@@ -293,7 +296,6 @@ class _MainPage extends State<MainPage> {
             ),
             ListTile(
               title: ElevatedButton(
-                child: const Text('View background collected data'),
                 onPressed: (_collectingTask != null)
                     ? () {
                         Navigator.of(context).push(
@@ -308,6 +310,7 @@ class _MainPage extends State<MainPage> {
                         );
                       }
                     : null,
+                child: const Text('View background collected data'),
               ),
             ),
           ],
@@ -340,10 +343,10 @@ class _MainPage extends State<MainPage> {
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Text('Error occured while connecting'),
-            content: Text("${ex.toString()}"),
+            content: Text(ex.toString()),
             actions: <Widget>[
-              new TextButton(
-                child: new Text("Close"),
+              TextButton(
+                child: Text("Close"),
                 onPressed: () {
                   Navigator.of(context).pop();
                 },

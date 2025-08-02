@@ -9,10 +9,10 @@ class DiscoveryPage extends StatefulWidget {
   /// If true, discovery starts on page start, otherwise user must press action button.
   final bool start;
 
-  const DiscoveryPage({this.start = true});
+  const DiscoveryPage({Key? key, this.start = true}) : super(key: key);
 
   @override
-  _DiscoveryPage createState() => new _DiscoveryPage();
+  _DiscoveryPage createState() => _DiscoveryPage();
 }
 
 class _DiscoveryPage extends State<DiscoveryPage> {
@@ -48,10 +48,11 @@ class _DiscoveryPage extends State<DiscoveryPage> {
       setState(() {
         final existingIndex = results.indexWhere(
             (element) => element.device.address == r.device.address);
-        if (existingIndex >= 0)
+        if (existingIndex >= 0) {
           results[existingIndex] = r;
-        else
+        } else {
           results.add(r);
+        }
       });
     });
 
@@ -83,7 +84,7 @@ class _DiscoveryPage extends State<DiscoveryPage> {
           isDiscovering
               ? FittedBox(
                   child: Container(
-                    margin: new EdgeInsets.all(16.0),
+                    margin: EdgeInsets.all(16.0),
                     child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
@@ -140,10 +141,10 @@ class _DiscoveryPage extends State<DiscoveryPage> {
                   builder: (BuildContext context) {
                     return AlertDialog(
                       title: const Text('Error occured while bonding'),
-                      content: Text("${ex.toString()}"),
+                      content: Text(ex.toString()),
                       actions: <Widget>[
-                        new TextButton(
-                          child: new Text("Close"),
+                        TextButton(
+                          child: Text("Close"),
                           onPressed: () {
                             Navigator.of(context).pop();
                           },

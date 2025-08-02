@@ -4,7 +4,7 @@ class FlutterBluetoothSerial {
   // Plugin
   static const String namespace = 'flutter_bluetooth_serial';
 
-  static FlutterBluetoothSerial _instance = new FlutterBluetoothSerial._();
+  static final FlutterBluetoothSerial _instance = FlutterBluetoothSerial._();
   static FlutterBluetoothSerial get instance => _instance;
 
   static final MethodChannel _methodChannel =
@@ -49,7 +49,7 @@ class FlutterBluetoothSerial {
 
   /// State of the Bluetooth adapter.
   Future<BluetoothState> get state async => BluetoothState.fromUnderlyingValue(
-      await (_methodChannel.invokeMethod('getState') as Future<dynamic>));
+      await (_methodChannel.invokeMethod('getState')));
 
   /// Returns the hardware address of the local Bluetooth adapter.
   ///
@@ -180,7 +180,7 @@ class FlutterBluetoothSerial {
   /// Note: It is necessary to return from handler within 10 seconds, since
   /// Android BroadcastReceiver can wait safely only up to that duration.
   void setPairingRequestHandler(
-      Future<dynamic> handler(BluetoothPairingRequest request)?) {
+      Future<dynamic> Function(BluetoothPairingRequest request)? handler) {
     if (handler == null) {
       _pairingRequestHandler = null;
       _methodChannel.invokeMethod('pairingRequestHandlingDisable');
@@ -210,7 +210,7 @@ class FlutterBluetoothSerial {
     late StreamSubscription subscription;
     StreamController controller;
 
-    controller = new StreamController(
+    controller = StreamController(
       onCancel: () {
         // `cancelDiscovery` happens automaticly by platform code when closing event sink
         subscription.cancel();
@@ -272,7 +272,7 @@ class FlutterBluetoothSerial {
   @Deprecated(
       'Use `BluetoothConnection.output` with some decoding (such as `ascii.decode` for strings) instead')
   Future<void> write(String message) {
-    _defaultConnection!.output.add(utf8.encode(message) as Uint8List);
+    _defaultConnection!.output.add(utf8.encode(message));
     return _defaultConnection!.output.allSent;
   }
 

@@ -39,8 +39,8 @@ class BluetoothConnection {
   bool get isConnected => output.isConnected;
 
   BluetoothConnection._consumeConnectionID(int? id)
-      : this._id = id,
-        this._readChannel =
+      : _id = id,
+        _readChannel =
             EventChannel('${FlutterBluetoothSerial.namespace}/read/$id') {
     _readStreamController = StreamController<Uint8List>();
 
@@ -48,7 +48,7 @@ class BluetoothConnection {
         _readChannel.receiveBroadcastStream().cast<Uint8List>().listen(
               _readStreamController.add,
               onError: _readStreamController.addError,
-              onDone: this.close,
+              onDone: close,
             );
 
     input = _readStreamController.stream;
@@ -81,7 +81,7 @@ class BluetoothConnection {
 
   /// Closes connection (rather immediately), in result should also disconnect.
   @Deprecated('Use `close` instead')
-  Future<void> cancel() => this.close();
+  Future<void> cancel() => close();
 
   /// Closes connection (rather gracefully), in result should also disconnect.
   Future<void> finish() async {
