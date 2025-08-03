@@ -24,7 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _loadUserData() {
     final user = authService.currentUser;
     if (user != null) {
-      _displayNameController.text = user.displayName;
+      _displayNameController.text = user.displayName ?? '';
     }
   }
 
@@ -130,16 +130,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     radius: 60,
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     backgroundImage:
-                        user.profileImageUrl != null
-                            ? NetworkImage(user.profileImageUrl!)
+                        user.photoURL != null
+                            ? NetworkImage(user.photoURL!)
                             : null,
                     child:
-                        user.profileImageUrl == null
+                        user.photoURL == null
                             ? Text(
-                              user.displayName.isNotEmpty
-                                  ? user.displayName
+                              (user.displayName?.isNotEmpty ?? false)
+                                  ? user.displayName!
                                       .substring(0, 1)
                                       .toUpperCase()
+                                  : (user.email?.isNotEmpty ?? false)
+                                  ? user.email!.substring(0, 1).toUpperCase()
                                   : 'U',
                               style: const TextStyle(
                                 fontSize: 32,
@@ -178,7 +180,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: ListTile(
                         leading: const Icon(Icons.person),
                         title: const Text('Display Name'),
-                        subtitle: Text(user.displayName),
+                        subtitle: Text(user.displayName ?? 'No display name'),
                       ),
                     ),
 
@@ -189,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: ListTile(
                       leading: const Icon(Icons.email),
                       title: const Text('Email'),
-                      subtitle: Text(user.email),
+                      subtitle: Text(user.email ?? 'No email'),
                     ),
                   ),
 
@@ -201,33 +203,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       leading: const Icon(Icons.calendar_today),
                       title: const Text('Member Since'),
                       subtitle: Text(
-                        '${user.createdAt.day}/${user.createdAt.month}/${user.createdAt.year}',
+                        user.metadata.creationTime != null
+                            ? '${user.metadata.creationTime!.day}/${user.metadata.creationTime!.month}/${user.metadata.creationTime!.year}'
+                            : 'Unknown',
                       ),
                     ),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Online Status
+                  // Online Status (Firebase doesn't have built-in online status)
                   Card(
                     child: ListTile(
                       leading: Icon(
                         Icons.circle,
-                        color: user.isOnline ? Colors.green : Colors.grey,
+                        color:
+                            Colors
+                                .green, // Always show as online since user is authenticated
                       ),
                       title: const Text('Status'),
-                      subtitle: Text(user.isOnline ? 'Online' : 'Offline'),
+                      subtitle: const Text('Online'),
                     ),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Device Info
+                  // Last Sign In
                   Card(
                     child: ListTile(
-                      leading: const Icon(Icons.devices),
-                      title: const Text('Device'),
-                      subtitle: Text(user.deviceInfo),
+                      leading: const Icon(Icons.access_time),
+                      title: const Text('Last Sign In'),
+                      subtitle: Text(
+                        user.metadata.lastSignInTime != null
+                            ? '${user.metadata.lastSignInTime!.day}/${user.metadata.lastSignInTime!.month}/${user.metadata.lastSignInTime!.year} at ${user.metadata.lastSignInTime!.hour}:${user.metadata.lastSignInTime!.minute.toString().padLeft(2, '0')}'
+                            : 'Unknown',
+                      ),
                     ),
                   ),
 

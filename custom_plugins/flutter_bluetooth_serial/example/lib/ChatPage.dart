@@ -49,7 +49,7 @@ class _ChatPage extends State<ChatPage> {
         isDisconnecting = false;
       });
 
-      connection!.input!.listen(_onDataReceived).onDone(() {
+      connection.input!.listen(_onDataReceived).onDone(() {
         // Example: Detect which side closed the connection
         // There should be `isDisconnecting` flag to show are we are (locally)
         // in middle of disconnecting process, should be set before calling
@@ -87,13 +87,11 @@ class _ChatPage extends State<ChatPage> {
   Widget build(BuildContext context) {
     final List<Row> list = messages.map((message) {
       return Row(
+        mainAxisAlignment: message.whom == clientID
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: <Widget>[
           Container(
-            child: Text(
-                (text) {
-                  return text == '/shrug' ? '¯\\_(ツ)_/¯' : text;
-                }(message.text.trim()),
-                style: TextStyle(color: Colors.white)),
             padding: EdgeInsets.all(12.0),
             margin: EdgeInsets.only(bottom: 8.0, left: 8.0, right: 8.0),
             width: 222.0,
@@ -101,11 +99,13 @@ class _ChatPage extends State<ChatPage> {
                 color:
                     message.whom == clientID ? Colors.blueAccent : Colors.grey,
                 borderRadius: BorderRadius.circular(7.0)),
+            child: Text(
+                (text) {
+                  return text == '/shrug' ? '¯\\_(ツ)_/¯' : text;
+                }(message.text.trim()),
+                style: TextStyle(color: Colors.white)),
           ),
         ],
-        mainAxisAlignment: message.whom == clientID
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
       );
     }).toList();
 

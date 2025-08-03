@@ -10,6 +10,15 @@ buildscript {
     }
 }
 
+// Set Java version for all projects
+
+
+// plugins {
+//     id("org.gradle.toolchains.foojay-resolver-convention") version("0.7.0")
+// } // Moved to settings.gradle.kts
+
+// ✅ Java toolchain configuration removed - handled per subproject
+
 allprojects {
     repositories {
         google()
@@ -23,18 +32,18 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
-    
+
     afterEvaluate {
         if (project.name == "app") {
             // App-specific configuration if needed
         }
     }
-    
-    // Configure Java toolchain for all subprojects
+
+    // ✅ Use Java 17 for all subprojects
     plugins.withType<JavaPlugin> {
         configure<JavaPluginExtension> {
             toolchain {
-                languageVersion = JavaLanguageVersion.of(24)
+                languageVersion = JavaLanguageVersion.of(17)
             }
         }
     }

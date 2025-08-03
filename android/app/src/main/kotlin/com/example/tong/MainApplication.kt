@@ -1,9 +1,9 @@
 package com.example.tong
 
-import androidx.multidex.MultiDexApplication
+import android.app.Application
 import io.flutter.app.FlutterApplication
 
-class MainApplication : MultiDexApplication() {
+class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
     }

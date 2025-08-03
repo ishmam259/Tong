@@ -36,12 +36,13 @@ dependencies:
 
   # UI and State Management
   cupertino_icons: ^1.0.8
-  firebase_core: ^4.0.0
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.3
 
   # Networking and Bluetooth
   flutter_reactive_ble: ^5.4.0 # reactive BLE for central + peripheral
-  flutter_bluetooth_serial:
-    path: ./custom_plugins/flutter_bluetooth_serial
+  # flutter_bluetooth_serial has been replaced with flutter_reactive_ble only
   permission_handler: ^11.3.1
 
   # Basic utilities only
@@ -52,10 +53,7 @@ dependencies:
   intl: ^0.19.0
   shared_preferences: ^2.5.3
 
-  # Authentication and Database (Local only)
-  # firebase_core: ^3.6.0    # Removed - using local auth
-  # firebase_auth: ^5.3.1    # Removed - using local auth
-  # cloud_firestore: ^5.4.3  # Removed - using local auth
+  # Authentication and Database (Firebase + Local backup)
   sqflite: ^2.3.3
   path: ^1.9.0
 
@@ -80,9 +78,9 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/images/
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'bluetooth_service.dart';
+import 'permission_service.dart';
 
 class NetworkingService extends ChangeNotifier {
   static final NetworkingService _instance = NetworkingService._internal();
@@ -21,6 +22,9 @@ class NetworkingService extends ChangeNotifier {
 
   // Bluetooth networking
   final BluetoothService _bluetoothService = BluetoothService.instance;
+
+  // Permission service
+  final PermissionService _permissionService = PermissionService();
 
   // UDP socket for device discovery
   RawDatagramSocket? _discoverySocket;
@@ -41,6 +45,9 @@ class NetworkingService extends ChangeNotifier {
   /// Initialize all networking services
   Future<bool> initializeNetworking() async {
     try {
+      // Request all permissions first
+      await _permissionService.requestAllPermissions();
+
       // Initialize Bluetooth service
       await _bluetoothService.initialize();
 

@@ -8,6 +8,8 @@ class ThemeProvider extends ChangeNotifier {
 
   bool get isDarkMode => _isDarkMode;
 
+  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+
   ThemeData get currentTheme {
     return _isDarkMode ? _darkTheme : _lightTheme;
   }

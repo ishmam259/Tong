@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
+import 'permission_service.dart';
 
 class BluetoothService extends ChangeNotifier {
   // Singleton
@@ -9,6 +10,9 @@ class BluetoothService extends ChangeNotifier {
   factory BluetoothService() => _instance;
   static BluetoothService get instance => _instance;
   BluetoothService._internal();
+
+  // Permission service
+  final PermissionService _permissionService = PermissionService();
 
   // Reactive BLE instance
   final FlutterReactiveBle _ble = FlutterReactiveBle();
@@ -52,6 +56,14 @@ class BluetoothService extends ChangeNotifier {
   /// Initialize the service
   Future<bool> initialize() async {
     try {
+      // Request permissions first
+      final permissionsGranted =
+          await _permissionService.requestAllPermissions();
+      if (!permissionsGranted) {
+        if (kDebugMode) print('❌ Bluetooth permissions not granted');
+        return false;
+      }
+
       // Check permissions and Bluetooth status
       final status = await _ble.statusStream.first;
       if (status != BleStatus.ready) {
@@ -120,13 +132,20 @@ class BluetoothService extends ChangeNotifier {
   Future<void> startScanning({int seconds = 5}) async {
     if (_isScanning) return;
 
+    // Check permissions before scanning
+    final hasPermissions = await _permissionService.hasBluetoothPermissions();
+    if (!hasPermissions) {
+      if (kDebugMode) print('❌ Bluetooth permissions not granted for scanning');
+      return;
+    }
+
     _discoveredDevices.clear();
     _isScanning = true;
     notifyListeners();
 
     _scanSubscription = _ble
         .scanForDevices(
-          withServices: [_serviceUuid],
+          withServices: [], // Scan for all devices, not just Tong devices
           scanMode: ScanMode.lowLatency,
         )
         .listen(
@@ -136,7 +155,7 @@ class BluetoothService extends ChangeNotifier {
               _discoveredDevices.add(device);
               notifyListeners();
               if (kDebugMode) {
-                print('📱 Found Tong device: ${device.name} (${device.id})');
+                print('📱 Found device: ${device.name} (${device.id})');
               }
             }
           },
